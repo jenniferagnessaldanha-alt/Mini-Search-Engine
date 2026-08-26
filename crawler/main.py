@@ -30,7 +30,9 @@ from urllib.parse import urljoin, urlparse, urldefrag
 import urllib.robotparser
 
 import requests
+from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+load_dotenv()
 
 from storage import (
     init_db, enqueue_url, pop_next_pending, mark_frontier_status,
