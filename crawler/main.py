@@ -30,13 +30,14 @@ from urllib.parse import urljoin, urlparse, urldefrag
 import urllib.robotparser
 
 import requests
-from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+
 load_dotenv()
 
 from storage import (
     init_db, enqueue_url, pop_next_pending, mark_frontier_status,
-    is_known, save_page, page_count, pending_count,
+    is_known, save_page, save_links, page_count, pending_count,
 )
 
 USER_AGENT = "MiniSearchBot/0.2 (+https://github.com/you/mini-search-engine)"
@@ -192,13 +193,16 @@ class Crawler:
             title = soup.title.string.strip() if soup.title and soup.title.string else ""
             text = " ".join(soup.get_text(separator=" ").split())[:20000]
 
-            save_page(url, title, text, depth)
+            doc_id = save_page(url, title, text, depth)
             mark_frontier_status(frontier_id, "done")
             self._record_result(domain, success=True)
             crawled_this_run += 1
 
+            links_found = self._extract_links(url, soup)
+            save_links(doc_id, links_found)  # record the link graph for Day 4's PageRank
+
             if depth < self.max_depth:
-                for link in self._extract_links(url, soup):
+                for link in links_found:
                     if not is_known(link):
                         enqueue_url(link, depth + 1)
 
