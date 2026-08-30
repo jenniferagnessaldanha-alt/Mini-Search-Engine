@@ -1,0 +1,36 @@
+# Day 7 — one command (`docker compose up`) starts Postgres AND the API,
+# already wired together, with no manual password-juggling or PATH
+# issues. This is what "deployment-ready" looks like for a project
+# like this: anyone can clone the repo and run one command.
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mini_search_engine
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/mini_search_engine
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:

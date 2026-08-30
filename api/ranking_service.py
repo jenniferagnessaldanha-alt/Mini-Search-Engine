@@ -49,7 +49,7 @@ def tfidf_scores(terms: list[str]) -> dict[int, float]:
         df = _document_frequency(term)
         if df == 0:
             continue
-        idf = math.log(n_docs / (1 + df))
+        idf = max(0.0, math.log(n_docs / (1 + df)))  # never let a matching term subtract from the score
         for doc_id, tf in _term_frequencies(term).items():
             scores[doc_id] += tf * idf
     return dict(scores)

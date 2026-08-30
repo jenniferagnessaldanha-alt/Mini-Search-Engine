@@ -9,6 +9,53 @@ def get_connection():
     dsn = os.environ.get("DATABASE_URL", DEFAULT_DSN)
     return psycopg2.connect(dsn)
 
+def init_db() -> None:
+    """Create all tables the API touches, if they don't already exist.
+    Mirrors crawler/storage.py + indexer/storage.py's table definitions
+    so the API works standalone (e.g. right after `docker compose up`,
+    before anyone has run the crawler or indexer yet).
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS pages (
+                    id SERIAL PRIMARY KEY,
+                    url TEXT UNIQUE NOT NULL,
+                    title TEXT,
+                    text TEXT,
+                    depth INTEGER NOT NULL,
+                    crawled_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS frontier (
+                    id SERIAL PRIMARY KEY,
+                    url TEXT UNIQUE NOT NULL,
+                    depth INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    added_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS links (
+                    id SERIAL PRIMARY KEY,
+                    from_doc_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+                    to_url TEXT NOT NULL,
+                    UNIQUE (from_doc_id, to_url)
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS inverted_index (
+                    term TEXT NOT NULL,
+                    doc_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+                    frequency INTEGER NOT NULL,
+                    PRIMARY KEY (term, doc_id)
+                );
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_frontier_status ON frontier(status);")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_inverted_index_term ON inverted_index(term);")
+        conn.commit()
+
 
 def get_pages_by_ids(doc_ids: list[int]):
     if not doc_ids:

@@ -26,11 +26,31 @@ from tokenizer import tokenize  # noqa: E402
 
 from fastapi import FastAPI, Query
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
-from .storage import get_pages_by_ids, page_count, pending_frontier_count, index_term_count
+from .storage import get_pages_by_ids, page_count, pending_frontier_count, index_term_count, init_db
 from .ranking_service import rank
 
 app = FastAPI(title="Mini Search Engine API", version="0.1")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+@app.on_event("startup") 
+def on_startup(): 
+    init_db()
+
+
+@app.on_event("startup")
+def on_startup():
+    """Ensure tables exist the moment the API starts — important for
+    Docker Compose, where the API may start against a completely fresh,
+    empty database before anyone has run the crawler yet.
+    """
+    init_db()
 
 
 class CrawlRequest(BaseModel):
