@@ -1,0 +1,70 @@
+"""
+Day 4 — TF-IDF scoring
+
+For a query term t and document d:
+    TF(t, d)  = how many times t appears in d (already stored as
+                `frequency` in the inverted_index table from Day 3)
+    IDF(t)    = log(N / (1 + df(t)))
+                where N = total number of documents, df(t) = number of
+                documents containing t. Rare terms across the corpus
+                get a higher weight; terms that appear on nearly every
+                page (and therefore say little about relevance) get
+                pushed toward zero. The "+1" avoids division by zero
+                for a term that (in theory) appears in zero docs.
+    TF-IDF(t, d) = TF(t, d) * IDF(t)
+
+A document's score for a multi-term query is the sum of TF-IDF across
+all query terms present in that document.
+"""
+
+import math
+from collections import defaultdict
+
+from storage import get_connection
+
+
+def total_document_count() -> int:
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM pages;")
+            return cur.fetchone()[0]
+
+
+def document_frequency(term: str) -> int:
+    """Number of distinct documents containing this term."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(DISTINCT doc_id) FROM inverted_index WHERE term = %s;", (term,))
+            return cur.fetchone()[0]
+
+
+def term_frequencies(term: str) -> dict[int, int]:
+    """{doc_id: frequency} for every document containing this term."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT doc_id, frequency FROM inverted_index WHERE term = %s;", (term,))
+            return dict(cur.fetchall())
+
+
+def tfidf_scores(terms: list[str]) -> dict[int, float]:
+    """Combined TF-IDF score per doc_id across all query terms (summed)."""
+    n_docs = total_document_count()
+    if n_docs == 0:
+        return {}
+
+    scores: dict[int, float] = defaultdict(float)
+
+    for term in terms:
+        df = document_frequency(term)
+        if df == 0:
+            continue  # term doesn't appear anywhere in the corpus
+        # Clamp at zero: with a very small corpus, log(N / (1+df)) can go
+        # negative (e.g. 1 doc total, term appears in it -> log(1/2) < 0),
+        # which would make a MATCHING term subtract from a score instead
+        # of adding to it. A term everywhere should count for nothing,
+        # not against you.
+        idf = max(0.0, math.log(n_docs / (1 + df)))
+        for doc_id, tf in term_frequencies(term).items():
+            scores[doc_id] += tf * idf
+
+    return dict(scores)
