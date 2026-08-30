@@ -21,6 +21,12 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
   api:
     build: .
     restart: unless-stopped
@@ -29,6 +35,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/mini_search_engine
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
 
