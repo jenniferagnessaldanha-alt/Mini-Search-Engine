@@ -115,6 +115,11 @@ export default function App() {
             <p className="result-meta">
               {data.total_results} result{data.total_results !== 1 ? "s" : ""} for{" "}
               <strong>&ldquo;{data.query}&rdquo;</strong>
+              {data.cache_hit && (
+                <span className="cache-badge" title="Served from Redis cache — skipped recomputing PageRank/TF-IDF">
+                  ⚡ cached
+                </span>
+              )}
             </p>
 
             <ul className="result-list">
@@ -129,6 +134,9 @@ export default function App() {
                     {highlightTerms(r.title || "(untitled page)", data.query)}
                   </a>
                   <div className="result-url">{r.url}</div>
+                  {r.snippet && (
+                    <p className="result-snippet">{highlightTerms(r.snippet, data.query)}</p>
+                  )}
 
                   <div className="signal-readout" aria-label="Ranking signal readout">
                     <span className="signal">
