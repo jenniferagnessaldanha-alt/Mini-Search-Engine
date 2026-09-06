@@ -36,9 +36,14 @@ from . import cache
 
 app = FastAPI(title="Mini Search Engine API", version="0.1")
 
+_allowed_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+_production_frontend = os.environ.get("FRONTEND_URL")
+if _production_frontend:
+    _allowed_origins.append(_production_frontend)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
