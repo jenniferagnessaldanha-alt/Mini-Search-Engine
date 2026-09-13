@@ -137,7 +137,24 @@ def crawl(req: CrawlRequest):
         "errors": result.stderr[-2000:] if result.returncode != 0 else None,
     }
 
+@app.post("/index")
+def build_index():
+    """Runs the indexer as a subprocess, rebuilding the search index
+    from whatever's currently in the pages table. Run this after any
+    /crawl to make new pages actually searchable.
+    """
+    project_root = os.path.join(os.path.dirname(__file__), "..")
+    cmd = [sys.executable, "indexer/main.py"]
+    result = subprocess.run(cmd, cwd=project_root, capture_output=True, text=True, timeout=120)
 
+    if result.returncode == 0:
+        cache.flush_search_cache()
+
+    return {
+        "returncode": result.returncode,
+        "output": result.stdout[-2000:],
+        "errors": result.stderr[-2000:] if result.returncode != 0 else None,
+    }
 @app.get("/status")
 def status():
     return {
